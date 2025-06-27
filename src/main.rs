@@ -1,8 +1,9 @@
 use anyhow::Context;
 use inotify::{Inotify, WatchMask};
-use std::{fs, path::Path, sync::LazyLock};
+use std::{fs, path::PathBuf, sync::LazyLock};
 
-const APPLICATIONS_DIR: &str = "/home/pplaczek/.local/share/applications";
+const APPLICATIONS_DIR_STR: &str = "/home/pplaczek/.local/share/applications";
+static APPLICATIONS_DIR_PATH: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from(APPLICATIONS_DIR_STR));
 const IDEA_DESKTOP_FILE_NAME_PREFIX: &str = "jetbrains-idea";
 const IDEA_DESKTOP_FILE_NAME_SUFFIX: &str = ".desktop";
 const REPLACE_PATTERN: &str = "Exec=";
@@ -44,10 +45,9 @@ fn replace_exec(idea_desktop_file_path: &std::path::Path) -> anyhow::Result<()> 
 
 #[allow(clippy::unnecessary_debug_formatting)]
 fn main() -> anyhow::Result<()> {
-    let applications_dir_path = Path::new(APPLICATIONS_DIR);
     let mut inotify = Inotify::init().context("Failed to initialize inotify")?;
 
-    let idea_desktop_file_path = fs::read_dir(APPLICATIONS_DIR)?
+    let idea_desktop_file_path = fs::read_dir(&*APPLICATIONS_DIR_PATH)?
         .find(|entry| {
             entry.as_ref().is_ok_and(|f| {
                 let name_string = f.file_name().to_string_lossy().into_owned();
@@ -64,10 +64,10 @@ fn main() -> anyhow::Result<()> {
 
     inotify
         .watches()
-        .add(APPLICATIONS_DIR, *INOTIFY_EVENT_MASK)
+        .add(&*APPLICATIONS_DIR_PATH, *INOTIFY_EVENT_MASK)
         .context("Failed to add inotify watch")?;
 
-    println!("Watching {APPLICATIONS_DIR} for changes...");
+    println!("Watching {:?} for changes...", *APPLICATIONS_DIR_PATH);
 
     let mut buffer = [0u8; INOTIFY_EVENT_BUFFER_SIZE];
     loop {
@@ -92,7 +92,7 @@ fn main() -> anyhow::Result<()> {
             };
 
             println!("Attempting to replace Exec line in desktop file... ");
-            replace_exec(&applications_dir_path.join(file_name))
+            replace_exec(&APPLICATIONS_DIR_PATH.join(file_name))
                 .context("Failed to replace Exec line in desktop file after modification")?;
         }
     }
