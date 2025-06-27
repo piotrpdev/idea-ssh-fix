@@ -1,0 +1,17 @@
+# Put me in /lib/systemd/system/
+[Unit]
+Description=Watch for JetBrains IDEA .desktop file changes and make sure Exec=idea is always set.
+
+StartLimitIntervalSec=500
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=pplaczek
+WorkingDirectory=/home/pplaczek/
+ExecStart=/usr/bin/idea-ssh-fix
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
